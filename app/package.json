@@ -1,0 +1,71 @@
+{
+    "name": "rise-api",
+    "version": "0.0.0",
+    "description": "oclif example Hello World CLI",
+    "author": "Gary Jennings @dodgeblaster",
+    "bin": {
+        "rise": "./bin/run"
+    },
+    "homepage": "https://github.com/dodgeblaster/hello-world",
+    "license": "MIT",
+    "main": "dist/index.js",
+    "repository": "dodgeblaster/hello-world",
+    "files": [
+        "/bin",
+        "/dist",
+        "/npm-shrinkwrap.json",
+        "/oclif.manifest.json"
+    ],
+    "dependencies": {
+        "@oclif/core": "^1",
+        "@oclif/plugin-help": "^5",
+        "@oclif/plugin-plugins": "^2.0.1"
+    },
+    "devDependencies": {
+        "@oclif/test": "^2",
+        "@types/jest": "^27.4.0",
+        "@types/node": "^16.9.4",
+        "eslint": "^7.32.0",
+        "eslint-config-oclif": "^4",
+        "eslint-config-oclif-typescript": "^1.0.2",
+        "eslint-plugin-node": "^11.1.0",
+        "globby": "^11",
+        "jest": "^27.5.0",
+        "oclif": "^2",
+        "shx": "^0.3.3",
+        "ts-node": "^10.2.1",
+        "tslib": "^2.3.1",
+        "typescript": "^4.4.3"
+    },
+    "oclif": {
+        "bin": "rise",
+        "dirname": "rise",
+        "commands": "./dist/commands",
+        "plugins": [
+            "@oclif/plugin-help",
+            "@oclif/plugin-plugins"
+        ],
+        "topicSeparator": " ",
+        "topics": {
+            "hello": {
+                "description": "Say hello to the world and others"
+            }
+        }
+    },
+    "scripts": {
+        "build": "shx rm -rf dist && tsc -b",
+        "postpack": "shx rm -f oclif.manifest.json",
+        "prepack": "yarn build && oclif manifest && oclif readme",
+        "test": "echo \"no tests yet\"",
+        "ci:test": "echo \"no tests yet\"",
+        "version": "oclif readme && git add README.md"
+    },
+    "engines": {
+        "node": ">=12.0.0"
+    },
+    "bugs": "https://github.com/dodgeblaster/hello-world/issues",
+    "keywords": [
+        "oclif"
+    ],
+    "types": "dist/index.d.ts"
+}
