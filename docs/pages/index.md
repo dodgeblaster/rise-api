@@ -25,7 +25,7 @@ Rise Api also has a strong opinion on how to structure a serverless project for 
 ## Install
 
 ```ts
-npm i -g rise-api
+npm i -g risecli
 ```
 
 ## Usage

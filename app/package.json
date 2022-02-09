@@ -1,6 +1,6 @@
 {
-    "name": "rise-api",
-    "version": "0.0.1",
+    "name": "risecli",
+    "version": "0.0.52",
     "description": "oclif example Hello World CLI",
     "author": "Gary Jennings @dodgeblaster",
     "bin": {
