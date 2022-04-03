@@ -62,7 +62,7 @@ const userConfig = (appName: string, stage: string) => {
     }
 }
 
-const apiConfig = (props: any) => {
+const apiConfig = (props: any, auth: boolean) => {
     return {
         Resources: {
             ApiGatewayRestApi: {
@@ -155,10 +155,17 @@ const apiConfig = (props: any) => {
                         Ref: 'ApiGatewayRestApi'
                     },
                     ApiKeyRequired: false,
-                    AuthorizationType: 'COGNITO_USER_POOLS',
-                    AuthorizerId: {
-                        Ref: 'ApiGatewayAuthorizer'
-                    },
+                    ...(auth
+                        ? {
+                              AuthorizationType: 'COGNITO_USER_POOLS',
+                              AuthorizerId: {
+                                  Ref: 'ApiGatewayAuthorizer'
+                              }
+                          }
+                        : {
+                              AuthorizationType: 'NONE'
+                          }),
+
                     Integration: {
                         IntegrationHttpMethod: 'POST',
                         Type: 'AWS_PROXY',
@@ -261,7 +268,7 @@ const apiConfig = (props: any) => {
 
 export function makeLambdaeEndpoint(props: any) {
     if (props.auth) {
-        const a = apiConfig(props)
+        const a = apiConfig(props, true)
         const c = userConfig(props.endpointName, props.stage)
         return {
             Resources: {
@@ -274,5 +281,5 @@ export function makeLambdaeEndpoint(props: any) {
             }
         }
     }
-    return apiConfig(props)
+    return apiConfig(props, false)
 }

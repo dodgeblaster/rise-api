@@ -34,17 +34,29 @@ const getCompleteDefinitionForEvents = () => {
     return deff
 }
 
-const getEventsFromDefinition = () => {
+const getEventsFromDefinition = (config: any) => {
     const defForEvents = getCompleteDefinitionForEvents()
 
     if (!defForEvents.events) {
         return []
     }
     const events = Object.keys(defForEvents.events).map((k) => {
-        return {
-            source: k.split('_')[0],
-            event: k.split('_')[1]
+        const actions = defForEvents.events[k]
+        const eventSourceDef = actions.filter(
+            (x: any) => x.type === 'event-source'
+        )
+
+        if (eventSourceDef.length === 0) {
+            throw new Error(
+                `events.${k} needs to have an action of type "event-source"`
+            )
         }
+        const eventDefinition = {
+            source: eventSourceDef[0].source.replace('{@stage}', config.stage), //k.split('_')[0],
+            event: eventSourceDef[0].event.replace('{@stage}', config.stage) // k.split('_')[1]
+        }
+
+        return eventDefinition
     })
     return events
 }
@@ -64,7 +76,8 @@ export async function deploy(
     }
 
     await uploadLambda(config.bucketName)
-    const events = getEventsFromDefinition()
+    const events = getEventsFromDefinition(config)
+
     await deployCfTemplate({
         region: config.region,
         appName: config.name,
@@ -74,6 +87,7 @@ export async function deploy(
         eventBus: config.eventBus,
         events
     })
+
     await foundation.lambda.updateLambdaCode({
         name: `${config.name}-main-${config.stage}`,
         filePath: 'main.zip',

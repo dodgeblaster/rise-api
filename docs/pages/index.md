@@ -2,7 +2,7 @@
 
 ## Intro
 
-Rise Api is a CLI that deploys a serverless application based on:
+Rise helps you build serverless apis with 1 javascript file. Underneath the hood, rise will create the following resources when deployed via the cli:
 
 -   Api Gateway
 -   Lambda
@@ -11,79 +11,175 @@ Rise Api is a CLI that deploys a serverless application based on:
 -   AppSync
 -   Cognito
 
-This CLI aims to provide a simple abstraction overtop of those resources so you can focus on your applications logic, and have the neccessary AWS resources deployed in response to your logic.
-
-Rise Api also has a strong opinion on how to structure a serverless project for frontend clients. Interactions the frontend makes to the backend are known as hot paths. These should be as fast and simple as possible. Long running tasks or heavy logic should happen async behind the scenes, and should be located outside the hot path (Rise Focus is a great solution for these usecases). Rise Api aims to accomplish:
+This project helps you accomplish:
 
 -   Fast interactions
 -   Simple business logic
--   Store state or records in a fast DB (DynamoDB)
+-   Store records in a fast DB (DynamoDB)
 -   Handle authentication, permissions, and access control (Cognito)
 -   Pass already authenticated events to the rest of your backend (EventBridge)
--   Make websockets easy to implement (Appsync)
+-   Make websockets easy to implement (Appsync, still in development)
 
-## Install
+## Getting started with the CLI
 
-```ts
+You can get started by globally npm installing rise-cli:
+
+```
 npm i -g risecli
 ```
 
-## Usage
+This will globally install rise allowing you to deploy valid riseapps by running the following command in your terminal:
 
-Deploy
-
-```ts
+```
 rise deploy
-```
-
-## Project Structure
-
-A rise api project as the following structure:
 
 ```
-/modules
-    moduleA.js
-    moduleB.js
-    moduleC.js
-rise.js
+
+To delete an appsync api, run
+
+```
+rise remove
 ```
 
-## What is the rise.js file for?
+## What does an Rise definition look like?
 
-Every rise project has at least a `rise.js` file which has 3 things:
-
--   api
--   events
--   config
-
-A rise file is structured as follows:
+Every Rise app must have an rise.js file at the root of the project. You can optionally create multiple modules with their own rise.js file as well. An example rise.js file looks like this:
 
 ```js
 module.exports = {
     api: {
-        apiAction1: [...actions],
-        apiAction2: [...actions]
+        listNotes: [
+            {
+                type: 'db',
+                action: 'list',
+                input: {
+                    pk: 'notes',
+                    sk: 'note_'
+                }
+            },
+            {
+                type: 'output',
+                id: 'string',
+                content: 'string'
+            }
+        ],
+        makeNote: [
+            {
+                type: 'input',
+                content: 'string'
+            },
+            {
+                type: 'db',
+                action: 'set',
+                input: {
+                    pk: 'notes',
+                    sk: '@id',
+                    content: '$content'
+                }
+            },
+            {
+                type: 'output',
+                id: 'string',
+                content: 'string'
+            }
+        ]
     },
     events: {
-        event1: [...actions],
-        event2: [...actions]
+        authorAdded: [
+            {
+                type: 'event-source',
+                source: 'coreservice',
+                event: 'authoradded{@stage}'
+            },
+            {
+                type: 'db',
+                action: 'set',
+                input: {
+                    pk: 'author',
+                    sk: '$id',
+                    ame: '$name'
+                }
+            }
+        ]
     },
     config: {
-        name: 'myAppsName',
-        region: 'us-east-1', // optional
-        stage: 'dev', // optional
-        auth: true, // optional
-        eventBus: 'default' // optional
+        name: 'myApp',
+        region: 'us-east-2',
+        auth: true
     }
 }
 ```
 
-A Rise app can respond to POST requests by defining arrays of actions in the api section, and response to EventBridge events by defining arrays of actions in the events section. How these are defined are explained in more detail in the Api and the Events pages of these docs.
+rise.js files can have an Api section, Events section, and if its the root rise.js file, a config. Api and Events have arrays of actions. These actions cover common usecases like DynamoDB CRUDL operations, Eventbridge emit actions and permission checks. Config defines the configuration for your app such as name, region, auth, and so on.
 
-The config section is how we configure the app itself:
+## How does the folder structure work?
 
--   `name` is the name of the project
--   `region` is optional, defaults to us-easy-1 if not defined. It is uncommon to hardcode this value here, this is more commonly defined as a flag when using the cli
--   `stare` is optional, defaults to dev if not defined. It is uncommon to hardcode this value here, this is more commonly defined as a flag when using the cli
--   `auth` is optional, defaults to false. If true, the api is protected by a Cognito User Pool
--   `evenBus` is optional, defaults to false. This determines which event bus to emit EventBridge events on.
+Small apis may only need 1 js file, in which case your folder structure would look like this:
+
+```
+rise.js
+```
+
+Larger Rise projects can benefit from modules. Rise follows a convention based approach. All modules must be inside a modules folder. Each folder inside the modules folder represents a single module. Each module will contain a rise.js file (Note: only the root rise.js file needs to have config defined). Here is what the folder structure of a larger project might look like:
+
+```
+rise.js
+/modules
+    /hats
+        rise.js
+    /shirts
+        rise.js
+    /shoes
+        rise.js
+```
+
+## What flags can you pass to the CLI?
+
+When deploying or removing, you can pass the following flags:
+
+```
+rise deploy --stage=prod --region=us-east-2 --ci=true --profile=personal
+```
+
+Region and stage set the AWS region and deployment stage of your api. Setting ci to true will cause the cli to skip saving the Cloudformation template to your file system (good for when you run the cli in a ci pipeline). profile determines the aws credentials profile you would like to use to deploy your project.
+
+## How do I setup AWS Credentials for local or CI Pipeline context?
+
+Locally, you can use your own AWS credentials. Check this video out if this is the first time you are setting up AWS credentials.
+
+Inside a CI Pipeline like Github Actions, you can set credentials up by setting environment variables like so:
+
+```
+AWS_ACCESS_KEY_ID=xxx AWS_SECRET_ACCESS_KEY=xxx rise deploy
+```
+
+Usually ci platforms have a way to store secrets in the environment. Never hardcode credentials in a github repository. An example of referencing Github Action secrets is as follows:
+
+```
+AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY }}
+```
+
+## How do I define a DynamoDB database?
+
+Every Rise api automatically deploys a DynamoDB table with a predefined structure (defining your own DynamoDB database structure is on the roadmap). The database structure of your project's database is as follows:
+
+### First Index
+
+```
+pk: Hash Key
+sk: Sort Key
+```
+
+### Second Index
+
+```
+pk2: Hash Key
+sk:  Sort Key
+```
+
+### Third Index
+
+```
+pk3: Hash Key
+sk:  Sort Key
+```

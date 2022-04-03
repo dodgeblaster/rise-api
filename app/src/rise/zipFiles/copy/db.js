@@ -24,6 +24,8 @@ const makeDbCall = async (def, input) => {
         return x
     }
 
+    throw new Error(`db action "${def.action}" is not supported`)
+
     return data
 }
 
