@@ -9,6 +9,7 @@ interface Input {
         source: string;
         event: string;
     }[];
+    deployCodeOnly: string | undefined;
 }
-export declare function deployCfTemplate({ appName, bucketArn, stage, auth, eventBus, events, region }: Input): Promise<void>;
+export declare function deployCfTemplate({ appName, bucketArn, stage, auth, eventBus, events, region, deployCodeOnly }: Input): Promise<void>;
 export {};

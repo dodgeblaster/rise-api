@@ -1,4 +1,4 @@
-export function makeDb(name: string) {
+export function makeDb(name: string, outputSuffix: string) {
     return {
         Resources: {
             [name + 'Database']: {
@@ -71,6 +71,11 @@ export function makeDb(name: string) {
                 }
             }
         },
-        Outputs: {}
+        Outputs: {
+            [`Database${outputSuffix}`]: {
+                Description: 'DB Name',
+                Value: name
+            }
+        }
     }
 }

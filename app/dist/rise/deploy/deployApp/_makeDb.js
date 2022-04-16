@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.makeDb = void 0;
-function makeDb(name) {
+function makeDb(name, outputSuffix) {
     return {
         Resources: {
             [name + 'Database']: {
@@ -74,7 +74,12 @@ function makeDb(name) {
                 }
             }
         },
-        Outputs: {}
+        Outputs: {
+            [`Database${outputSuffix}`]: {
+                Description: 'DB Name',
+                Value: name
+            }
+        }
     };
 }
 exports.makeDb = makeDb;

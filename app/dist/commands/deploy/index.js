@@ -7,7 +7,8 @@ class Deploy extends core_1.Command {
         const { flags } = await this.parse(Deploy);
         const stage = flags.stage || undefined;
         const region = flags.region || undefined;
-        deployCommand_1.deploy(stage, region);
+        const code = flags.code || undefined;
+        deployCommand_1.deploy(stage, region, code);
     }
 }
 exports.default = Deploy;
@@ -22,6 +23,11 @@ Deploy.flags = {
     region: core_1.Flags.string({
         char: 'r',
         description: 'AWS Region',
+        required: false
+    }),
+    code: core_1.Flags.string({
+        char: 'c',
+        description: 'Deploy code only',
         required: false
     })
 };

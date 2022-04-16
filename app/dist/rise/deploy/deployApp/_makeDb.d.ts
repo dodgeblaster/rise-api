@@ -1,4 +1,4 @@
-export declare function makeDb(name: string): {
+export declare function makeDb(name: string, outputSuffix: string): {
     Resources: {
         [x: string]: {
             Type: string;
@@ -26,5 +26,10 @@ export declare function makeDb(name: string): {
             };
         };
     };
-    Outputs: {};
+    Outputs: {
+        [x: string]: {
+            Description: string;
+            Value: string;
+        };
+    };
 };

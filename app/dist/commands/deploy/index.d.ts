@@ -5,6 +5,7 @@ export default class Deploy extends Command {
     static flags: {
         stage: import("@oclif/core/lib/interfaces").OptionFlag<string | undefined>;
         region: import("@oclif/core/lib/interfaces").OptionFlag<string | undefined>;
+        code: import("@oclif/core/lib/interfaces").OptionFlag<string | undefined>;
     };
     run(): Promise<void>;
 }

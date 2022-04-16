@@ -8,6 +8,22 @@ const uploadCode_1 = require("./uploadCode");
 const deployApp_1 = require("./deploy/deployApp");
 const rise_foundation_1 = require("rise-foundation");
 const rise_cli_foundation_1 = require("rise-cli-foundation");
+const fs = require("fs");
+const getUrl = async (stackName) => {
+    try {
+        const data = require(process.cwd() + '/.rise/rise-data.js');
+        return data.endpoint;
+    }
+    catch (e) {
+        const { Endpoint } = await rise_foundation_1.default.cloudformation.getCloudFormationOutputs({
+            stack: stackName,
+            outputs: ['Endpoint']
+        });
+        fs.writeFileSync(process.cwd() + '/.rise/rise-data.js', `module.exports = {  endpoint: "${Endpoint}/rise"}`);
+        const data = require(process.cwd() + '/.rise/rise-data.js');
+        return data.endpoint;
+    }
+};
 const getCompleteDefinitionForEvents = () => {
     // get root
     let orig = rise_cli_foundation_1.default.fileSystem.getJsFileFromProject('/rise.js');
@@ -52,14 +68,18 @@ const getEventsFromDefinition = (config) => {
     });
     return events;
 };
-async function deploy(stage, region) {
+async function deploy(stage, region, code) {
     let config = await getConfig_1.getConfig(stage, region);
-    await zipFiles_1.zipFiles();
+    if (!code) {
+        await zipFiles_1.zipFiles();
+    }
     if (!config.bucketName) {
         const bucketName = await deployApplicationBucket_1.deployApplicationBucket(config.name, config.stage);
         config.bucketName = bucketName;
     }
-    await uploadCode_1.uploadLambda(config.bucketName);
+    if (!code) {
+        await uploadCode_1.uploadLambda(config.bucketName);
+    }
     const events = getEventsFromDefinition(config);
     await deployApp_1.deployCfTemplate({
         region: config.region,
@@ -68,12 +88,18 @@ async function deploy(stage, region) {
         stage: config.stage,
         auth: config.auth,
         eventBus: config.eventBus,
-        events
+        events,
+        deployCodeOnly: code
     });
-    await rise_foundation_1.default.lambda.updateLambdaCode({
-        name: `${config.name}-main-${config.stage}`,
-        filePath: 'main.zip',
-        bucket: config.bucketName
-    });
+    if (!code) {
+        await rise_foundation_1.default.lambda.updateLambdaCode({
+            name: `${config.name}-main-${config.stage}`,
+            filePath: 'main.zip',
+            bucket: config.bucketName
+        });
+    }
+    const stackName = config.name + '-' + config.stage;
+    const endpoint = await getUrl(stackName);
+    console.log('Endpoint: ' + endpoint);
 }
 exports.deploy = deploy;

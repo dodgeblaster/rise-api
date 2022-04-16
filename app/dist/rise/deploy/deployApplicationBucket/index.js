@@ -32,7 +32,7 @@ async function deployApplicationBucket(appName, stage) {
         stack: stackName,
         outputs: ['MainBucket']
     });
-    fs.writeFileSync(process.cwd() + '/.rise/data.js', `module.exports = { bucketName: "${MainBucket}"}`);
+    fs.writeFileSync(process.cwd() + '/.rise/data.js', `module.exports = { bucketName: "${MainBucket}"`);
     return MainBucket;
 }
 exports.deployApplicationBucket = deployApplicationBucket;

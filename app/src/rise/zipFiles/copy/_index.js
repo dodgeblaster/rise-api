@@ -27,8 +27,8 @@ const getDef = async (tableName) => {
             TableName: `${tableName}meta`,
             KeyConditionExpression: 'pk = :pk AND begins_with(sk, :sk)',
             ExpressionAttributeValues: {
-                ':pk': 'defBrokenUp',
-                ':sk': 'module_'
+                ':pk': 'definition',
+                ':sk': 'meta'
             }
         })
         .promise()
@@ -37,11 +37,15 @@ const getDef = async (tableName) => {
         api: {},
         events: {}
     }
-    item.Items.forEach((x) => {
-        let MOD = JSON.parse(x.def)
+
+    const theDefinition = JSON.parse(item.Items[0].def)
+    Object.keys(theDefinition).forEach((k) => {
+        const x = theDefinition[k]
+        let MOD = x
         //eval(x.def.replace('module.exports=', 'MOD='))
         // eval(x.def.replace('module.exports = ', 'MOD='))
-        const moduleName = x.sk.split('_')[1]
+        const moduleName = k //x.sk.split('_')[1];
+
         const makeNewEventName = (name) => `${moduleName}##${name}`
         def = {
             api: {
@@ -216,6 +220,11 @@ const getSubFromJwtHeader = async (event) => {
     let hData = event.queryStringParameters.header
     let buff = new Buffer(hData, 'base64')
     let text = buff.toString('ascii')
+
+    if (JSON.parse(text).jwt === 'internal') {
+        return 'internal'
+    }
+
     const jwtResult = await r.default.cognito.validateToken({
         token: JSON.parse(text).jwt,
         userPoolId: process.env.USERPOOL_ID || 'us-east-1_EBxmB9P5J'
@@ -257,6 +266,7 @@ module.exports.handler = async (event) => {
     if (isWebSocketConnectEvent(event)) {
         if (process.env.USERPOOL_ID) {
             const sub = await getSubFromJwtHeader(event)
+
             if (!sub) {
                 return {
                     statusCode: 400,
@@ -320,78 +330,90 @@ module.exports.handler = async (event) => {
         const app = await getDef(process.env.DB)
         const def = app.connect
 
-        if (!def || !def[JSON.parse(event.body).data.payload.connection]) {
-            return {
-                statusCode: 400,
-                body: JSON.stringify({
-                    message: 'Not a valid connection'
-                })
-            }
-        }
-
-        input = JSON.parse(event.body).data.payload.input
-
-        const l = def[JSON.parse(event.body).data.payload.connection]
-        let auth = {}
-        if (JSON.parse(event.body).data.payload.jwt) {
-            const sub = await getSubFromJwt(
-                JSON.parse(event.body).data.payload.jwt
-            )
-            auth = {
-                sub
-            }
-        }
-
-        state = {
-            input,
-            working: input,
-            prev: {},
-            auth
-        }
-
-        let channelToWrite = 'public'
-        try {
-            for (const x of l) {
-                if (x.type === 'input') {
-                    state.working = checkInputStructure(x, input)
-                    errorType = 500
+        if (JSON.parse(event.body).data.payload.connection !== 'internal') {
+            if (!def || !def[JSON.parse(event.body).data.payload.connection]) {
+                return {
+                    statusCode: 400,
+                    body: JSON.stringify({
+                        message: 'Not a valid connection'
+                    })
                 }
+            }
 
-                if (x.type === 'add') {
-                    const res = addAction(x, state)
-                    state.working = {
-                        ...state.working,
-                        ...res
+            input = JSON.parse(event.body).data.payload.input
+
+            const l = def[JSON.parse(event.body).data.payload.connection]
+            let auth = {}
+            if (JSON.parse(event.body).data.payload.jwt) {
+                const sub = await getSubFromJwt(
+                    JSON.parse(event.body).data.payload.jwt
+                )
+                auth = {
+                    sub
+                }
+            }
+
+            state = {
+                input,
+                working: input,
+                prev: {},
+                auth
+            }
+
+            let channelToWrite = 'public'
+            try {
+                for (const x of l) {
+                    if (x.type === 'input') {
+                        state.working = checkInputStructure(x, input)
+                        errorType = 500
+                    }
+
+                    if (x.type === 'add') {
+                        const res = addAction(x, state)
+                        state.working = {
+                            ...state.working,
+                            ...res
+                        }
+                    }
+
+                    if (x.type === 'guard') {
+                        state.working = await guardAction(x, state)
+                    }
+
+                    if (x.type === 'channel') {
+                        const xx = inputHelper(state, { key: x.key })
+                        channelToWrite = xx.key
                     }
                 }
-
-                if (x.type === 'guard') {
-                    state.working = await guardAction(x, state)
-                }
-
-                if (x.type === 'channel') {
-                    const xx = inputHelper(state, { key: x.key })
-                    channelToWrite = xx.key
+            } catch (e) {
+                return {
+                    statusCode: 400,
+                    body: JSON.stringify({
+                        message: e.message
+                    })
                 }
             }
-        } catch (e) {
-            return {
-                statusCode: 400,
-                body: JSON.stringify({
-                    message: e.message
-                })
-            }
-        }
 
-        const params = {
-            TableName: `${process.env.DB}meta`,
-            Item: {
-                pk: channelToWrite,
-                sk: 'id_' + JSON.parse(event.body).data.payload.id
+            const params = {
+                TableName: `${process.env.DB}meta`,
+                Item: {
+                    pk: channelToWrite,
+                    sk: 'id_' + JSON.parse(event.body).data.payload.id
+                }
             }
-        }
 
-        await db.put(params).promise()
+            await db.put(params).promise()
+        } else {
+            const params = {
+                TableName: `${process.env.DB}meta`,
+                Item: {
+                    pk: 'internal',
+                    sk: 'id_' + JSON.parse(event.body).data.payload.id
+                }
+            }
+
+            await db.put(params).promise()
+        }
     }
 
     if (isWebSocketSendEvent(event)) {
@@ -566,15 +588,15 @@ module.exports.handler = async (event) => {
                             : state.working
                 })
             }
-            // await broadcastAction(
-            //     { channel: 'internal' },
-            //     {
-            //         working: {
-            //             type: 'EXECUTION_STATE',
-            //             actions: internalDevState
-            //         }
-            //     }
-            // )
+            await broadcastAction(
+                { channel: 'internal' },
+                {
+                    working: {
+                        type: 'EXECUTION_STATE',
+                        actions: internalDevState
+                    }
+                }
+            )
 
             return {
                 statusCode: 200,
@@ -608,15 +630,15 @@ module.exports.handler = async (event) => {
                     }
                 })
             }
-            // await broadcastAction(
-            //     { channel: 'internal' },
-            //     {
-            //         working: {
-            //             type: 'EXECUTION_STATE',
-            //             actions: internalDevState
-            //         }
-            //     }
-            // )
+            await broadcastAction(
+                { channel: 'internal' },
+                {
+                    working: {
+                        type: 'EXECUTION_STATE',
+                        actions: internalDevState
+                    }
+                }
+            )
             // await r.default.db.set(
             //     {
             //         pk: 'RISE_ERROR',
@@ -803,14 +825,14 @@ module.exports.handler = async (event) => {
                 await doAction(def[defEventKey])
             }
         }
-        // await broadcastAction(
-        //     { channel: 'internal' },
-        //     {
-        //         working: {
-        //             type: 'EXECUTION_STATE',
-        //             actions: internalDevState
-        //         }
-        //     }
-        // )
+        await broadcastAction(
+            { channel: 'internal' },
+            {
+                working: {
+                    type: 'EXECUTION_STATE',
+                    actions: internalDevState
+                }
+            }
+        )
     }
 }

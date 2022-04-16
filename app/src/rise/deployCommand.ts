@@ -5,6 +5,27 @@ import { uploadLambda } from './uploadCode'
 import { deployCfTemplate } from './deploy/deployApp'
 import foundation from 'rise-foundation'
 import cli from 'rise-cli-foundation'
+import * as fs from 'fs'
+
+const getUrl = async (stackName: string) => {
+    try {
+        const data = require(process.cwd() + '/.rise/rise-data.js')
+        return data.endpoint
+    } catch (e) {
+        const { Endpoint } =
+            await foundation.cloudformation.getCloudFormationOutputs({
+                stack: stackName,
+                outputs: ['Endpoint']
+            })
+
+        fs.writeFileSync(
+            process.cwd() + '/.rise/rise-data.js',
+            `module.exports = {  endpoint: "${Endpoint}/rise"}`
+        )
+        const data = require(process.cwd() + '/.rise/rise-data.js')
+        return data.endpoint
+    }
+}
 
 const getCompleteDefinitionForEvents = () => {
     // get root
@@ -63,10 +84,14 @@ const getEventsFromDefinition = (config: any) => {
 
 export async function deploy(
     stage: string | undefined,
-    region: string | undefined
+    region: string | undefined,
+    code: string | undefined
 ) {
     let config = await getConfig(stage, region)
-    await zipFiles()
+    if (!code) {
+        await zipFiles()
+    }
+
     if (!config.bucketName) {
         const bucketName = await deployApplicationBucket(
             config.name,
@@ -75,7 +100,10 @@ export async function deploy(
         config.bucketName = bucketName
     }
 
-    await uploadLambda(config.bucketName)
+    if (!code) {
+        await uploadLambda(config.bucketName)
+    }
+
     const events = getEventsFromDefinition(config)
 
     await deployCfTemplate({
@@ -85,12 +113,20 @@ export async function deploy(
         stage: config.stage,
         auth: config.auth,
         eventBus: config.eventBus,
-        events
+        events,
+        deployCodeOnly: code
     })
 
-    await foundation.lambda.updateLambdaCode({
-        name: `${config.name}-main-${config.stage}`,
-        filePath: 'main.zip',
-        bucket: config.bucketName
-    })
+    if (!code) {
+        await foundation.lambda.updateLambdaCode({
+            name: `${config.name}-main-${config.stage}`,
+            filePath: 'main.zip',
+            bucket: config.bucketName
+        })
+    }
+
+    const stackName = config.name + '-' + config.stage
+    const endpoint = await getUrl(stackName)
+
+    console.log('Endpoint: ' + endpoint)
 }

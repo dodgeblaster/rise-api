@@ -1,6 +1,6 @@
 {
     "name": "risecli",
-    "version": "0.0.53",
+    "version": "0.0.54",
     "description": "oclif example Hello World CLI",
     "author": "Gary Jennings @dodgeblaster",
     "bin": {
@@ -60,6 +60,7 @@
     },
     "scripts": {
         "build": "shx rm -rf dist && tsc -b",
+        "copy": "cp -R ./src/rise/zipFiles/copy ./dist/rise/zipFiles",
         "postpack": "shx rm -f oclif.manifest.json",
         "prepack": "yarn build && oclif manifest && oclif readme",
         "test": "./node_modules/.bin/jest",

@@ -16,6 +16,11 @@ export default class Deploy extends Command {
             char: 'r',
             description: 'AWS Region',
             required: false
+        }),
+        code: Flags.string({
+            char: 'c',
+            description: 'Deploy code only',
+            required: false
         })
     }
 
@@ -23,7 +28,8 @@ export default class Deploy extends Command {
         const { flags } = await this.parse(Deploy)
         const stage = flags.stage || undefined
         const region = flags.region || undefined
+        const code = flags.code || undefined
 
-        deploy(stage, region)
+        deploy(stage, region, code)
     }
 }

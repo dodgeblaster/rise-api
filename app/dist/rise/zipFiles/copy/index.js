@@ -1,4 +1,3 @@
-"use strict";
 module.exports = {
     makenote: [
         {
@@ -25,4 +24,4 @@ module.exports = {
             }
         }
     ]
-};
+}
