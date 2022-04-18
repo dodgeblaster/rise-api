@@ -7,6 +7,10 @@ module.exports = {
     api: {
         createPost: [
             {
+                type: 'input',
+                content: 'string'
+            },
+            {
                 type: 'add',
                 pk: 'my-notes',
                 sk: 'note_@id'
@@ -20,13 +24,85 @@ module.exports = {
 }
 ```
 
-In the above example, each object in the array represents an action we want to perform. The first action adds pk and sk to the state. The second action will put the state into your rise api's DynamoDB table.
+When `createPost` or any other api action is executed, it starts off with an empty state object. When values are added to the state, it persists through out the execution of the action and is made available to every step inside the action. Values can be added to the state by the steps inside the action. Lets look at an example:
 
-## Available Actions
+```js
+module.exports = {
+    api: {
+        createPost: [
+            /* 
+            At the very beginning, there is nothing in the state:
 
-### Database Actions
+            {}
+            */
+            {
+                type: 'input',
+                content: 'string'
+            },
+            /* 
+            The input step defines what values need to be posted to this action, and 
+            throws a 400 response if these values are not included in the POST body. 
+            Once these values have been confirmed to be part of the POST body, this 
+            step will add them to the state:
 
-Database actions will take whatever is in state and perform a database call with that data
+            {
+                content: "Hello"
+            }
+            */
+            {
+                type: 'add',
+                pk: 'my-notes',
+                sk: 'note_@id'
+            },
+            /* 
+            The add action will add values to the state. This is great for ids or 
+            for business logic
+
+            {
+                 content: "Hello"
+                 pk: 'my-notes',
+                 sk: 'note_12nhj234-jn23jn34-kjn34'
+            }
+            */
+            {
+                type: 'db',
+                action: 'set'
+            }
+            /* 
+            The db steps will do actions against the db. It gets its input in 2 ways:
+            1. It will take whatever is in the state, and use that to make its 
+               queries and mutations
+            2. If an input value is defined, it will only use what is defined 
+               (more details below)
+            */
+        ]
+    }
+}
+```
+
+## Available Steps
+
+### Input Steps
+
+_Required: type_
+
+Input steps define what input must be present in the POST's body. It will throw a 400 error if they are not
+present. Once all values have been confirmed, this step will add each value to the state of the action. When
+defining the input, you specify the property and the typeof value.
+
+```js
+{
+    type: 'input',
+    name: 'string',
+    age: 'number'
+}
+```
+
+### Database Step
+
+_Required: type, action_
+
+Database steps will take whatever is in state and perform a database call with that data
 
 ```js
 {
@@ -47,7 +123,7 @@ Database actions will take whatever is in state and perform a database call with
 }
 ```
 
-You can alternatively define the input of each db action for more control. This works well when what is in state does not correspond to what db call you want to make.
+Alternatively, you can define the input of each db step for more control. This works well when what is in the state does not correspond to what db call you want to make.
 
 ```js
 {
@@ -84,9 +160,11 @@ You can alternatively define the input of each db action for more control. This 
 }
 ```
 
-### Add Actions
+### Add Steps
 
-Add action will add this value to the input of the resolver. In the example below we can see the @id keyword being used, which will be replaced with a UUID
+_Required: type_
+
+Add step will add values to the state. In the example below we can see the @id keyword being used, which will be replaced with a UUID (more on the @id keyword below)
 
 ```js
 {
@@ -95,11 +173,13 @@ Add action will add this value to the input of the resolver. In the example belo
 }
 ```
 
-### Guard Actions
+### Guard Steps
 
-Guard will query the database using the pk and sk values provided. If it successfully finds the item, the next actions in the array will execute. If it does not find the item, it will throw an unauthorized error, stopping any further exection. This usually is an action you chain with others in order to protect certain queries or mutations.
+_Required: type, pk, sk_
 
-Here we also see the !sub keyword. ! represents the cognito user. In this case, we are referencing sub value on the cognito user object. This object will be present if the incoming api call is authenticated with a cognito JWT. This only works if you have configured your project to use cognito user pools by setting auth to true in the config of the root rise.js file.
+Guard will query the database using the pk and sk values provided. If it successfully finds the item, the next steps in the array will execute. If it does not find the item, it will throw an unauthorized error, stopping any further exection. This usually is a step you chain with others in order to protect certain queries or mutations.
+
+Here we also see the !sub keyword. ! represents the cognito user. In this case, we are referencing sub value on the cognito user object (more on the !sub keyword below).
 
 ```js
 {
@@ -109,13 +189,15 @@ Here we also see the !sub keyword. ! represents the cognito user. In this case, 
 }
 ```
 
-### Emit Event Action
+### Emit Event Steps
 
-Emit actions will emit a event bridge event. In order to use this action, you must have an eventBus defined in the config of your root rise.js file. In the example below, we can see the use of the # character. This will reference the result from the last db action.
+_Required: type, event, input_
+
+Emit steps will emit an event bridge event. In order to use this step, you must have an eventBus defined in the config of your root rise.js file.
 
 ```js
 {
-    type: 'emit-event',
+    type: 'emit',
     event: 'startProcess',
     input: {
         pk: '$pk',
@@ -127,17 +209,27 @@ Emit actions will emit a event bridge event. In order to use this action, you mu
 
 ## Keywords
 
-When defining actions, it is helpful to reference different values
+Each keyword is prefixed with the @ symbol. Example:
+
+```js
+myValue: '@id'
+```
+
+If you want to use a keyword in the middle of a string, you must surround it with {}, example:
+
+```js
+myValue: 'note_{@id}'
+```
 
 ### Random ID: @id
 
-Creating a random id for new items is a common part of CRUDL apps. This can be done with the '@id' keyword:
+@id creates a random id
 
 ```js
 {
     type: 'add',
     pk: 'note',
-    sk: 'note_{@id}'
+    sk: 'note_{@id}' // note_234234d-ederfe-34f3f
 }
 ```
 
@@ -147,23 +239,16 @@ Creating a random id for new items is a common part of CRUDL apps. This can be d
 {
     type: 'add',
     pk: 'events',
-    sk: 'event_{@now}'
+    sk: 'event_{@now}' // event_163474523450
 }
 ```
 
-### Today: @today
+## References
 
-```js
-{
-    type: 'add',
-    pk: 'events',
-    sk: 'event_{@today}' // 2022-02-02
-}
-```
+### State: $
 
-### Input: $
-
-Input from the api post calls body, or details in event bridge events, will automatically be added to state. There may be times you want to assign values in state in an action. This can be set with the $ character:
+Steps in a Rise Action include state, which can be added to. Often we will want to reference that state and use it in future steps such as db calls, event emitting, and defining return values. Properties on the state object
+can be referenced with the $ symbol. Example:
 
 ```js
 {
@@ -173,15 +258,38 @@ Input from the api post calls body, or details in event bridge events, will auto
 }
 ```
 
+If state needs to be used within a string, the reference must be surrounded by {}, example:
+
+```js
+{
+    type: 'add',
+    pk: 'notes_{$type}',
+    sk: 'note_{$id}'
+}
+```
+
 ### Cognito User: !
 
-The user object provided by the logged in Cognito user can be referenced with ! character
+Often permissions are determined by which logged in user is making the HTTP POST call. This can be
+determined by getting the users id off of the JWT provided in the Authorization header. Rise handles parsing
+this JWT for you. Properties on the JWT object can be referenced with the ! symbol, Example:
 
 ```js
 {
     type: 'add',
     pk: 'account-information',
     sk: '!sub',
+    email: '!email'
+}
+```
+
+If values needs to be used within a string, the reference must be surrounded by {}, example:
+
+```js
+{
+    type: 'add',
+    pk: 'account-information',
+    sk: 'user_{!sub}',
     email: '!email'
 }
 ```

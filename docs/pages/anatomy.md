@@ -77,7 +77,7 @@ Here we see 3 top level properties:
 
 Each rise project when deployed will have 1 endpoint that receives post requests. This is inspired by GraphQL, and instead relies on concepts like Queries and Mutations rather than http verbs such as GET, POST, PUT, DELETE.
 
-Every property in the api object can be posted to from the frontend, here is an example:
+Every property in the api object can be posted to from a frontend client, here is an example:
 
 ```js
 const data = {

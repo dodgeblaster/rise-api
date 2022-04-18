@@ -8,7 +8,6 @@ Rise helps you build serverless apis with 1 javascript file. Underneath the hood
 -   Lambda
 -   DynamoDB
 -   EventBridge
--   AppSync
 -   Cognito
 
 This project helps you accomplish:
@@ -18,7 +17,7 @@ This project helps you accomplish:
 -   Store records in a fast DB (DynamoDB)
 -   Handle authentication, permissions, and access control (Cognito)
 -   Pass already authenticated events to the rest of your backend (EventBridge)
--   Make websockets easy to implement (Appsync, still in development)
+-   Make websockets easy to implement (ApiGateway, still in development)
 
 ## Getting started with the CLI
 
